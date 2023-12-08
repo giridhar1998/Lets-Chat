@@ -1,0 +1,22 @@
+{
+  "name": "lets-chat",
+  "version": "1.0.0",
+  "description": "Basic chatting app using MERN Stack",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/giridhar1998/Lets-Chat.git"
+  },
+  "keywords": [
+    "MERN"
+  ],
+  "author": "Giridhar",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/giridhar1998/Lets-Chat/issues"
+  },
+  "homepage": "https://github.com/giridhar1998/Lets-Chat#readme"
+}
