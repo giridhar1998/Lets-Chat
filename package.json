@@ -18,5 +18,19 @@
   "bugs": {
     "url": "https://github.com/giridhar1998/Lets-Chat/issues"
   },
-  "homepage": "https://github.com/giridhar1998/Lets-Chat#readme"
+  "homepage": "https://github.com/giridhar1998/Lets-Chat#readme",
+  "dependencies": {
+    "all": "^0.0.0",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "express-async-handler": "^1.1.4",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^8.0.3",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "concurrently": "^5.3.0",
+    "nodemon": "^2.0.4"
+  }
 }
