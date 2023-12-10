@@ -1,0 +1,23 @@
+[
+    {
+        "_id": "6575bff6c409423ba60c3635",
+        "senderId": "6575b1d6d037a255c239da07",
+        "recipientId": "657545feebcb9790e51d294e",
+        "status": "pending",
+        "__v": 0
+    },
+    {
+        "_id": "6575c008c409423ba60c363a",
+        "senderId": "6575b1d6d037a255c239da07",
+        "recipientId": "6575b1c6d037a255c239da04",
+        "status": "pending",
+        "__v": 0
+    },
+    {
+        "_id": "6575c014c409423ba60c363f",
+        "senderId": "6575b1d6d037a255c239da07",
+        "recipientId": "65738e9073bb2f77190a66cf",
+        "status": "pending",
+        "__v": 0
+    }
+]

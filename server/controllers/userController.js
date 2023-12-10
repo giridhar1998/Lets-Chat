@@ -1,13 +1,14 @@
 import asyncHandler from 'express-async-handler';
 import generateToken from '../utils/generateToken.js';
+import jwt from 'jsonwebtoken'
 import User from '../models/userModel.js';
 
 // @desc    Auth user & get token
 // @route   POST /api/users/login
 const authUser = asyncHandler(async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const user = await User.findOne({ username });
+    const { name, password } = req.body;
+    const user = await User.findOne({ name });
 
     if (user && (await user.matchPassword(password))) {
       res.status(200).json({
@@ -18,7 +19,7 @@ const authUser = asyncHandler(async (req, res) => {
       });
     } else {
       res.status(401);
-      throw new Error('Invalid email or password');
+      throw new Error('Invalid username or password');
     }
   } catch (error) {
     res.status(500).json({ message: error.message || 'Server Error' });
@@ -31,7 +32,7 @@ const registerUser = asyncHandler(async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const userExists = await User.findOne({ $or: [{ username }, { email }] });
+    const userExists = await User.findOne({ $or: [{ name }, { email }] });
 
     if (userExists) {
       res.status(400);
@@ -70,8 +71,36 @@ const getUserProfile = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get user profile
+// @route   POST /api/users/logout
+const logoutUser = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '2s' });
+    res.status(200).json({ message: 'Logged out successfully', token });
+  }
+  catch(error){
+    console.error(error);
+  }
+})
+
+// @desc    Get all users
+// @route   GET /api/users/usernames
+const getUsers = asyncHandler(async (req, res) => {
+  try {
+    const users = await User.find({}, 'name'); 
+    const usernames = users.map((user) => user.name);
+    res.status(200).json(usernames);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 export {
   authUser,
   registerUser,
   getUserProfile,
+  logoutUser,
+  getUsers,
 };

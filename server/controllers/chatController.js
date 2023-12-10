@@ -1,112 +1,174 @@
 import Conversation from '../models/conversationModel.js'
-import Message from '../models/messageModel.js'
+import Invitation from '../models/invitationModel.js'
 import asyncHandler from 'express-async-handler'
+import User from '../models/userModel.js'
 
-// @desc    Sending invite to user
-// @route   POST /api/chat/sendRequest
-const sendRequest = asyncHandler(async (req, res) => {
+const sendInvite = asyncHandler(async (req, res) => {
   try {
-    const { toUserId } = req.body;
-    const fromUserId = req.userId; // Extracted from JWT token in authMiddleware
+    const { recipientUsername } = req.body;
+    const sender = req.user;
+    const recipient = await User.findOne({ name: recipientUsername });
+    console.log("recepient : ", recipient);
 
-    // Check if the 'toUser' exists
-    const toUser = await User.findById(toUserId);
-    if (!toUser) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!sender || !recipient) {
+      return res.status(404).json({ message: 'Sender or recipient not found' });
     }
 
-    // Check if there's an existing conversation with these users
-    const existingConversation = await Conversation.findOne({
-      participants: { $all: [fromUserId, toUserId] },
-    });
+    const existingInvite = await Invitation.findOne({ senderId: sender._id, recipientId: recipient._id });
+    console.log(existingInvite);
 
-    if (existingConversation) {
-      return res.status(400).json({ message: 'Conversation already exists' });
+    if (existingInvite) {
+      return res.status(400).json({ message: 'Invite already sent' });
     }
 
-    // Send a chat request by creating a placeholder conversation
-    const newConversation = new Conversation({ participants: [fromUserId, toUserId], isRequested: true });
-    await newConversation.save();
+    const invitation = new Invitation({ senderId: sender._id, recipientId: recipient._id });
+    console.log(invitation);
+    await invitation.save();
 
-    res.status(201).json({ message: 'Chat request sent successfully', conversation: newConversation });
-  } catch (err) {
-    console.error(err);
+    res.status(201).json({ message: 'Invite sent successfully' });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
 
-// @desc    Create a new conversation
-// @route   POST /api/chat//conversation
-const newConversation = asyncHandler(async (req, res) => {
+const getAllRequests = asyncHandler(async (req, res) => {
   try {
-    const { participants } = req.body;
+    const receiver = req.userId;
+    const invitations = await Invitation.find({ $or: [{ senderId: receiver }, { recipientId: receiver }] });
 
-    // Check if conversation with the same participants already exists
-    const existingConversation = await Conversation.findOne({ participants });
-    if (existingConversation) {
-      return res.status(400).json({ message: 'Conversation already exists' });
+    res.status(200).json(invitations);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+})
+
+const acceptInvite = asyncHandler(async (req, res) => {
+  try {
+
+    const { invitationId } = req.body;
+    const invitation = await Invitation.findById(invitationId);
+
+    console.log("inviation : ", invitation);
+
+    if (!invitation) {
+      return res.status(404).json({ message: 'Invitation not found' });
     }
 
-    // Create a new conversation
-    const newConversation = new Conversation({ participants });
-    await newConversation.save();
+    invitation.status = 'accepted';
+    await invitation.save();
 
-    res.status(201).json({ message: 'Conversation created successfully', conversation: newConversation });
-  } catch (err) {
-    console.error(err);
+    res.status(200).json({ message: 'Invitation accepted successfully' });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
 
-// @desc    Get all conversations of a user
-// @route   GET /api/chat//conversations
-const allConversation = asyncHandler(async (req, res) => {
+const rejectInvite = asyncHandler(async (req, res) => {
   try {
-    const userId = req.userId; // Extracted from JWT token in authMiddleware
+    const { invitationId } = req.body;
+    const invitation = await Invitation.findById(invitationId);
 
-    // Find all conversations where the user is a participant
-    const conversations = await Conversation.find({ participants: userId }).populate('participants', 'username');
+    if (!invitation) {
+      return res.status(404).json({ message: 'Invitation not found' });
+    }
 
-    res.status(200).json({ conversations });
-  } catch (err) {
-    console.error(err);
+    invitation.status = 'rejected';
+    await invitation.save();
+
+    res.status(200).json({ message: 'Invitation rejected successfully' });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
 
-// @desc    Send message in a conversation
-// @route   POST /api/chat/message
 const sendMessage = asyncHandler(async (req, res) => {
   try {
-    const { conversationId, text } = req.body;
-    const sender = req.userId; // Extracted from JWT token in authMiddleware
+    const senderId = req.userId;
+    const { recipientUsername, text } = req.body;
 
-    // Check if the conversation exists and is requested
-    const conversation = await Conversation.findById(conversationId);
-    if (!conversation || conversation.isRequested) {
-      return res.status(400).json({ message: 'Invite not accepted yet' });
+    // Find the recipient user
+    const recipient = await User.findOne({ name: recipientUsername });
+    if (!recipient) {
+      return res.status(404).json({ message: 'Recipient not found' });
+    }
+    const recipientId = recipient._id;
+
+    // Check if there's an accepted invitation between sender and recipient
+    const invitation = await Invitation.findOne({
+      senderId,
+      recipientId,
+      status: 'accepted',
+    });
+    if (!invitation) {
+      return res.status(400).json({ message: 'Invite not accepted yet or rejected' });
     }
 
-    // Check if the sender is part of the conversation
-    if (!conversation.participants.includes(sender)) {
-      return res.status(403).json({ message: 'Unauthorized' });
+    // Find or create a conversation between sender and recipient
+    let conversation = await Conversation.findOne({
+      participants: { $all: [senderId, recipientId] },
+    });
+
+    if (!conversation) {
+      conversation = new Conversation({ participants: [senderId, recipientId], messages: [] });
     }
 
     // Create a new message
-    const newMessage = new Message({ conversationId, sender, text });
-    await newMessage.save();
+    const newMessage = {
+      sender: senderId,
+      text: text,
+      createdAt: new Date(), // You can adjust this timestamp as needed
+    };
+
+    // Add the message to the conversation and save it
+    conversation.messages.push(newMessage);
+    await conversation.save();
 
     res.status(201).json({ message: 'Message sent successfully', newMessage });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
 
 
+const getConversations = asyncHandler(async (req, res) => {
+  try {
+    const userId1 = req.userId;
+    const { recipientUsername } = req.body;
+    const recipient = await User.findOne({ name: recipientUsername });
+    console.log("recipient: ", recipient);
+
+    if (!recipient) {
+      return res.status(404).json({ message: 'Recipient not found' });
+    }
+    const userId2 = recipient._id;
+
+    console.log("userId1 :", userId1)
+    console.log("userId2 : ", userId2)
+
+    const conversations = await Conversation.find({
+      participants: { $all: [userId1, userId2] },
+    });
+
+    res.status(200).json(conversations);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});  
+
 export {
-    sendRequest,
-    newConversation,
-    allConversation,
-    sendMessage,
-}
+  sendInvite,
+  getAllRequests,
+  acceptInvite,
+  rejectInvite,
+  sendMessage,
+  getConversations,
+};
+
+
+
