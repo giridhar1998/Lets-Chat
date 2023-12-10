@@ -172,7 +172,7 @@ const sendMessage = asyncHandler(async (req, res) => {
 // @route   GET /api/chat/conversations
 const getConversations = asyncHandler(async (req, res) => {
   try {
-    const sender = req.userId; 
+    const sender = req.userId;
     const { recipientUsername } = req.body;
 
     const recipient = await User.findOne({ name: recipientUsername });
@@ -182,16 +182,28 @@ const getConversations = asyncHandler(async (req, res) => {
 
     const receiver = recipient._id;
 
-    const conversations = await Conversation.find({
+    const conversation = await Conversation.findOne({
       participants: { $all: [sender, receiver] },
-    });
+    }).populate('messages.sender', 'name');
 
-    res.status(200).json(conversations);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    const responseData = {
+      history: conversation.messages.map((message) => ({
+        username: message.sender.name,
+        message: message.text,
+      })),
+    };
+
+    res.status(200).json(responseData);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
+
 
 
 export {
