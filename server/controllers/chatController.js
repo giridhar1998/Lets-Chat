@@ -3,12 +3,13 @@ import Invitation from '../models/invitationModel.js'
 import asyncHandler from 'express-async-handler'
 import User from '../models/userModel.js'
 
+// @desc    Send invitation to user for chat
+// @route   POST /api/chat/send
 const sendInvite = asyncHandler(async (req, res) => {
   try {
     const { recipientUsername } = req.body;
     const sender = req.user;
     const recipient = await User.findOne({ name: recipientUsername });
-    console.log("recepient : ", recipient);
 
     if (!sender || !recipient) {
       return res.status(404).json({ message: 'Sender or recipient not found' });
@@ -32,18 +33,46 @@ const sendInvite = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Send invitation to user for chat
+// @route   GET /api/chat/invitations
 const getAllRequests = asyncHandler(async (req, res) => {
   try {
-    const receiver = req.userId;
-    const invitations = await Invitation.find({ $or: [{ senderId: receiver }, { recipientId: receiver }] });
+    const receiverId = req.userId;
 
-    res.status(200).json(invitations);
+    const invitations = await Invitation.find({
+      $or: [{ senderId: receiverId }, { recipientId: receiverId }],
+    });
+
+    const modifiedInvitations = await Promise.all(
+      invitations.map(async (invitation) => {
+        const sender = await User.findById(invitation.senderId).select('name');
+        const recipient = await User.findById(invitation.recipientId).select('name');
+
+        return {
+          invitationId: invitation._id,
+          sender: {
+            id: invitation.senderId,
+            name: sender ? sender.name : 'Unknown Sender',
+          },
+          recipient: {
+            id: invitation.recipientId,
+            name: recipient ? recipient.name : 'Unknown Recipient',
+          },
+          status: invitation.status,
+        };
+      })
+    );
+
+    res.status(200).json(modifiedInvitations);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
-})
+});
 
+
+// @desc    Lets user to accept the invitation
+// @route   POST /api/chat/accept
 const acceptInvite = asyncHandler(async (req, res) => {
   try {
 
@@ -66,6 +95,8 @@ const acceptInvite = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Lets user to reject invitation
+// @route   POST /api/chat/reject
 const rejectInvite = asyncHandler(async (req, res) => {
   try {
     const { invitationId } = req.body;
@@ -85,45 +116,48 @@ const rejectInvite = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    API to send message to a user
+// @route   POST /api/chat/message
 const sendMessage = asyncHandler(async (req, res) => {
   try {
     const senderId = req.userId;
     const { recipientUsername, text } = req.body;
 
-    // Find the recipient user
     const recipient = await User.findOne({ name: recipientUsername });
     if (!recipient) {
       return res.status(404).json({ message: 'Recipient not found' });
     }
-    const recipientId = recipient._id;
 
-    // Check if there's an accepted invitation between sender and recipient
-    const invitation = await Invitation.findOne({
-      senderId,
-      recipientId,
+    const senderInvitation = await Invitation.findOne({
+      senderId: senderId,
+      recipientId: recipient._id,
       status: 'accepted',
     });
-    if (!invitation) {
+
+    const recipientInvitation = await Invitation.findOne({
+      senderId: recipient._id,
+      recipientId: senderId,
+      status: 'accepted',
+    });
+
+    if (!senderInvitation && !recipientInvitation) {
       return res.status(400).json({ message: 'Invite not accepted yet or rejected' });
     }
 
-    // Find or create a conversation between sender and recipient
     let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, recipientId] },
+      participants: { $all: [senderId, recipient._id] },
     });
 
     if (!conversation) {
-      conversation = new Conversation({ participants: [senderId, recipientId], messages: [] });
+      conversation = new Conversation({ participants: [senderId, recipient._id], messages: [] });
     }
 
-    // Create a new message
     const newMessage = {
       sender: senderId,
       text: text,
-      createdAt: new Date(), // You can adjust this timestamp as needed
+      createdAt: new Date(),
     };
 
-    // Add the message to the conversation and save it
     conversation.messages.push(newMessage);
     await conversation.save();
 
@@ -134,24 +168,22 @@ const sendMessage = asyncHandler(async (req, res) => {
   }
 });
 
-
+// @desc    API to get all the one on one conversations
+// @route   GET /api/chat/conversations
 const getConversations = asyncHandler(async (req, res) => {
   try {
-    const userId1 = req.userId;
+    const sender = req.userId; 
     const { recipientUsername } = req.body;
-    const recipient = await User.findOne({ name: recipientUsername });
-    console.log("recipient: ", recipient);
 
+    const recipient = await User.findOne({ name: recipientUsername });
     if (!recipient) {
       return res.status(404).json({ message: 'Recipient not found' });
     }
-    const userId2 = recipient._id;
 
-    console.log("userId1 :", userId1)
-    console.log("userId2 : ", userId2)
+    const receiver = recipient._id;
 
     const conversations = await Conversation.find({
-      participants: { $all: [userId1, userId2] },
+      participants: { $all: [sender, receiver] },
     });
 
     res.status(200).json(conversations);
@@ -159,7 +191,8 @@ const getConversations = asyncHandler(async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
-});  
+});
+
 
 export {
   sendInvite,
