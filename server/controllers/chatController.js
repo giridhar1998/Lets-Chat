@@ -33,7 +33,7 @@ const sendInvite = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Send invitation to user for chat
+// @desc    Get all invitation to and fro of user
 // @route   GET /api/chat/invitations
 const getAllRequests = asyncHandler(async (req, res) => {
   try {

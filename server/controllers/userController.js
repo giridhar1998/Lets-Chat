@@ -7,8 +7,18 @@ import User from '../models/userModel.js';
 // @route   POST /api/users/login
 const authUser = asyncHandler(async (req, res) => {
   try {
-    const { name, password } = req.body;
-    const user = await User.findOne({ name });
+    const { nameOrEmail, password } = req.body;
+
+    // Check if the input is an email address
+    const isEmail = nameOrEmail.includes('@');
+
+    // Find user by username or email
+    let user;
+    if (isEmail) {
+      user = await User.findOne({ email: nameOrEmail });
+    } else {
+      user = await User.findOne({ name: nameOrEmail });
+    }
 
     if (user && (await user.matchPassword(password))) {
       res.status(200).json({
@@ -19,7 +29,7 @@ const authUser = asyncHandler(async (req, res) => {
       });
     } else {
       res.status(401);
-      throw new Error('Invalid username or password');
+      throw new Error('Invalid username/email or password');
     }
   } catch (error) {
     res.status(500).json({ message: error.message || 'Server Error' });
