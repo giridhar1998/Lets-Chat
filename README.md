@@ -9,7 +9,7 @@ Basic chatting app using MERN Stack
 3. Create a .env file with below config
    NODE_ENV = development
    PORT = 5000
-   MONGO_URI = mongodb+srv://giritej:giritej@cluster1.stfwigk.mongodb.net/
+   MONGO_URI = Your mongo url
    JWT_SECRET = 'abc123'
 4. @command: npm start
    @desc: command to start backend server
